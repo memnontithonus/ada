@@ -1,14 +1,77 @@
 import ollama
 import asyncio
+import pyaudio
 from RealtimeSTT import AudioToTextRecorder
 from RealtimeTTS import TextToAudioStream, SystemEngine, CoquiEngine
+import torch  # Import the torch library
+import re
 import time
+import os
+from .WIDGETS import system, timer, project, camera
+
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+VOICE_ID = 'pFZP5JQG7iQjIQuC4Bku'
+
+FORMAT = pyaudio.paInt16
+CHANNELS = 1
+SEND_SAMPLE_RATE = 16000
+RECEIVE_SAMPLE_RATE = 24000
+CHUNK_SIZE = 1024
 
 class ADA:
     def __init__(self):
         print("initializing...")
-        self.model = "gemma3:1b" #1b is the fastes but least accurate version if you have at least 8gb of vram I would use the 4b version
-        self.system_behavior = '''Your name is Ada (Advanced Design Assistant). You have fun and joking personality. You are an AI expert in engineering, math, and science, designed to assist with engineering projects. Your creator is Naz, whom you address as "sir." Keep responses concise and focused on the user's request. Do not use any emojis when answering prompts'''
+
+        # Check for CUDA availability
+        if torch.cuda.is_available():
+            self.device = "cuda"
+            print("CUDA is available. Using GPU.")
+        else:
+            self.device = "cpu"
+            print("CUDA is not available. Using CPU.")
+
+        self.model = "gemma3:4b-it-q4_K_M" #This is the smallest version of gemma3 for consistent function calling use gemma3:4b-it-q4_K_M  or higher if your computer is not strong enough use ada_online
+        self.system_behavior = """
+            Your name is ADA (Advanced Design Assistant) you are a helpful AI assistant.  You are an expert in All STEM Fields providing concise and accurate information. When asked to perform a task, respond with the code to perform that task wrapped in ```tool_code```.  If the task does not require a function call, provide a direct answer without using ```tool_code```.  Always respond in a helpful and informative manner."
+
+            You speak with a british accent and address people as Sir.
+        """
+
+        self.instruction_prompt_with_function_calling = '''
+            At each turn, if you decide to invoke any of the function(s), it should be wrapped with ```tool_code```. If you decide to call a function the response should only have the function wrapped in tool code nothing more. The python methods described below are imported and available, you can only use defined methods also only call methods when you are sure they need to be called. The generated code should be readable and efficient. 
+            
+            The response to a method will be wrapped in ```tool_output``` use the response to give the user an answer based on the information provided that is wrapped in ```tool_ouput```.
+
+            For regular prompts do not call any functions or wrap the response in ```tool_code```.
+
+            The following Python methods are available:
+
+            ```python
+            def camera.open() -> None:
+                """Open the camera"""
+
+            def system.info() -> None:
+                """ Gathers and prints system information including CPU, RAM, and GPU details. Only call when user ask about computer information. """
+
+            def timer.set(time_str):
+                """
+                Counts down from a specified time in HH:MM:SS format.
+
+                Args:
+                    time_str (str): The time to count down from in HH:MM:SS format.
+                """
+            def project.create_folder(folder_name):
+                """
+                Creates a project folder and a text file to store chat history.
+
+                Args:
+                    folder_name (str): The name of the project folder to create.
+                """
+        ```
+
+        User: {user_message}
+        '''
+
         self.model_params = {
             'temperature': 0.1,
             'top_p': 0.9,
@@ -39,13 +102,21 @@ class ADA:
             print(f"Error initializing AudioToTextRecorder: {e}")
             self.recorder = None  # Or handle this appropriately
 
+        try:
+            self.pya = pyaudio.PyAudio()
+        except Exception as e:
+            print(f"Error initializing PyAudio: {e}")
+            self.pya = None
+        
+        self.response_start_time = None
+        self.audio_start_time = None
         #self.engine = CoquiEngine()
         self.engine = SystemEngine()
         self.stream = TextToAudioStream(self.engine)
         self.first_audio_byte_time = None
         self.speech_to_text_time = None
 
-    async def clear_queues(self):
+    async def clear_queues(self, text=""):
         """Clears all data from the input, response, and audio queues."""
         queues = [self.input_queue, self.response_queue, self.audio_queue]
         for q in queues:
@@ -75,31 +146,76 @@ class ADA:
                 prompt = await self.input_queue.get()
                 if prompt is None:
                     break  # Exit loop if None is received
-                messages = [{"role": "system", "content": self.system_behavior}] + self.conversation_history + [{"role": "user", "content": prompt}]
+                
+                self.response_start_time = time.time() #start timer when prompt is sent
+                
+                messages = [{"role": "system", "content": self.system_behavior}] + self.conversation_history + [{"role": "user", "content": self.instruction_prompt_with_function_calling.format(user_message=prompt)}]
                 try:
                     response = ollama.chat(model=self.model, messages=messages, stream=True)
                     full_response = ""
+                    in_function_call = False
+                    function_call = ""
+
                     for chunk in response:
                         chunk_content = chunk['message']['content']
-                        await self.response_queue.put(chunk_content)
-                        await asyncio.sleep(0)
-                        if chunk_content:
-                            full_response += chunk_content
+                        if chunk_content == "```":
+                            if in_function_call == True:
+                                in_function_call = False
+                                function_call += "```"
+                                tool_output = self.extract_tool_call(function_call)
 
+                                messages = [{"role": "system", "content": self.system_behavior}] + self.conversation_history + [{"role": "user", "content": self.instruction_prompt_with_function_calling.format(user_message=tool_output)}]
+                                
+                                response = ollama.chat(model=self.model, messages=messages, stream=True)
+                                for chunk in response:
+                                    chunk_content = chunk['message']['content']
+                                    print(chunk_content, end="", flush=True)
+                                    await self.response_queue.put(chunk_content)
+                                print()
+                                continue
+                            else:
+                               in_function_call = True
+
+                        if in_function_call == False:
+                            await self.response_queue.put(chunk_content)
+                            await asyncio.sleep(0)
+                        else:
+                            function_call += chunk_content                        
+                        if chunk_content:
+                            print(chunk_content, end="", flush=True) #print chunks on same line
+                            full_response += chunk_content
+                    print() # new line
                     self.conversation_history.append({"role": "user", "content": prompt})
                     self.conversation_history.append({"role": "assistant", "content": full_response})
-                    print(full_response)
+
                 except Exception as e:
                     print(f"An error occurred in send_prompt: {e}")
             except asyncio.CancelledError:
-                break  # Exit loop if task is cancelled
+                break
             except Exception as e:
                 print(f"Unexpected error in send_prompt: {e}")
 
             finally:  # Ensure the sentinel value is added even if an error occurs
                 await self.response_queue.put(None)
 
-    async def text_to_speech(self):
+    def extract_tool_call(self, text):
+        import io
+        from contextlib import redirect_stdout
+
+        pattern = r"```tool_code\s*(.*?)\s*```"
+        match = re.search(pattern, text, re.DOTALL)
+        if match:
+            code = match.group(1).strip()
+            # Capture stdout in a string buffer
+            f = io.StringIO()
+            with redirect_stdout(f):
+                result = eval(code)
+            output = f.getvalue()
+            r = result if output == '' else output
+            return f'```tool_output\n{str(r).strip()}\n```'''
+        return None
+
+    async def tts(self):
         while True:
             chunk = await self.response_queue.get()
             if chunk == None:
@@ -111,23 +227,17 @@ class ADA:
             self.stream.feed(chunk)
             self.stream.play_async()
 
-    async def listen(self):
+    async def stt(self):
         if self.recorder is None:
             print("Audio recorder is not initialized.")
             return
 
         while True:
             try:
-                listen_start_time = time.time()
                 text = await asyncio.to_thread(self.recorder.text)
-                listen_end_time = time.time()
-                self.speech_to_text_time = listen_end_time - listen_start_time
-                print(f"Time to convert speech to text: {self.speech_to_text_time:.4f} seconds")
                 await self.clear_queues()
-                self.prompt_start_time = time.time()
                 await self.input_queue.put(text)
                 print(text)
-                self.first_audio_byte_time = None
             except Exception as e:
                 print(f"Error in listen: {e}")
                 continue  # Continue the loop even if there's an error

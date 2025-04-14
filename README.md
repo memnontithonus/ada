@@ -1,131 +1,227 @@
 # ADA (Advanced Design Assistant)
 
-ADA is a helpful AI assistant specializing in STEM fields, designed to provide concise and accurate information and assist with various tasks through voice or text interaction. ADA comes in two versions: a local version (`ada_local`) that runs primarily on your machine and an online version (`ada_online`) that utilizes cloud-based services.
+ADA is a helpful AI assistant specializing in STEM fields, designed to provide concise and accurate information and assist with various tasks through voice or text interaction. ADA comes in two versions: a local version (`ada_local`) that runs primarily on your machine and an online version (`ada_online`) that utilizes cloud-based services. A separate multimodal live demo (`multimodal_live_api.py`) is also included, showcasing real-time audio and video interaction.
+
+**Recommendation:** While both versions are available, the **`ada_online` version is heavily recommended**. It leverages powerful cloud-based models (Google Gemini) and services (ElevenLabs TTS) that generally offer faster, higher-quality, and more reliable responses compared to the local version, which is dependent on your hardware capabilities. The online models have also been developed and refined for a longer period.
 
 ## Features
 
-* **Dual Versions:** Choose between running ADA locally or using online services.
-* **Real-time Interaction:** Communicate with ADA using voice (Speech-to-Text) and receive spoken responses (Text-to-Speech).
-* **Function Calling:** ADA can perform specific tasks by calling available functions (widgets), such as:
-    * Accessing system information (`system.info`)
-    * Setting timers (`timer.set`)
-    * Creating project folders (`project.create_folder`)
-    * Opening the camera (`camera.open`)
-    * Managing a To-Do list (`to_do_list.create_list`, `add_task`, etc.)
-* **STEM Expertise:** Designed to assist with engineering, math, and science queries.
-* **Conversational:** Engages in natural language conversation.
+- **Dual Versions:** Choose between running ADA locally (`ada_local`) or using online services (`ada_online`).
+- **Real-time Interaction:** Communicate with ADA using voice (Speech-to-Text) and receive spoken responses (Text-to-Speech).
+- **Function Calling & Grounding:** ADA can perform specific tasks by calling available functions (widgets) and use tools like Google Search to access current information.
+  - Accessing system information (`system.info`)
+  - Setting timers (`timer.set`)
+  - Creating project folders (`project.create_folder`)
+  - Opening the camera (`camera.open`)
+  - Managing a To-Do list (`to_do_list.py` - _Note: Not currently integrated as a callable tool in provided main scripts_)
+  - Getting weather (`get_weather`)
+  - Calculating travel duration (`get_travel_duration`)
+- **STEM Expertise:** Designed to assist with engineering, math, and science queries.
+- **Conversational:** Engages in natural language conversation.
+- **Multimodal Demo:** Includes a script (`multimodal_live_api.py`) for live interaction combining audio and video (camera/screen).
 
 ## Setup
 
 ### Prerequisites
 
-* **Python:** Ensure you have Python installed (the code appears to use features compatible with Python 3.11+).
-* **Ollama (for `ada_local`):** You need Ollama installed and running to serve the local LLM. Make sure you have downloaded the model specified in `ADA_Local.py` (e.g., `gemma3:1b-it-q4_K_M` or similar).
-* **CUDA (Optional, for `ada_local`):** For better performance with local models, a CUDA-compatible GPU and the necessary drivers are recommended. ADA will automatically detect and use the GPU if available via PyTorch.
-* **Microphone and Speakers:** Required for voice interaction (STT/TTS).
-* **API Keys (for `ada_online`):** See the API Key Setup section below.
+- **Python:** Ensure you have Python installed (code uses features compatible with Python 3.11+).
+- **Ollama (for `ada_local`)**: You need Ollama installed and running to serve the local LLM. Make sure you have downloaded the model specified in `ADA/ADA_Local.py` (e.g., `gemma3:4b-it-q4_K_M`). Performance heavily depends on your hardware.
+- **CUDA (Optional, for `ada_local` & potentially local STT/TTS models)**: For better performance with local models, a CUDA-compatible GPU and the necessary drivers are recommended. ADA's local components attempt to automatically detect and use the GPU if available via PyTorch.
+- **Microphone and Speakers:** Required for voice interaction (STT/TTS). **Headphones are strongly recommended** to prevent echo and self-interruption.
+- **API Keys (for `ada_online` & `multimodal_live_api.py`)**: See the API Key Setup section below.
+- **FFmpeg (Optional, Recommended)**: The `RealtimeSTT` or `RealtimeTTS` libraries (or their dependencies) might rely on FFmpeg for audio processing. If you encounter audio errors (like `torchaudio` warnings in logs), installing FFmpeg and ensuring it's in your system's PATH is recommended.
+- **System Dependencies (e.g., `portaudio`)**: Libraries like `PyAudio` might require system-level libraries (like `portaudio` on Linux/macOS or specific drivers on Windows). Consult the documentation for `PyAudio` and `RealtimeTTS` (especially if using `CoquiEngine`) for specific OS requirements.
 
 ### Installation
 
 1.  **Clone the Repository:**
     ```bash
-    git clone <your-repository-url>
+    git clone https://github.com/Nlouis38/ada.git
     cd ada_v1
     ```
 2.  **Install Dependencies:**
-    Install the required Python libraries. Based on the imports in the provided files, you'll likely need:
+    Create a virtual environment (recommended):
     ```bash
-    pip install ollama websockets pyaudio RealtimeSTT RealtimeTTS torch google-generativeai opencv-python pillow mss psutil GPUtil elevenlabs python-dotenv # Add any other specific libraries used
+    python -m venv venv
+    source venv/bin/activate # On Windows use `venv\Scripts\activate`
     ```
-    *Note: Installing `PyAudio` might require additional system dependencies (like `portaudio`). `CoquiEngine` within `RealtimeTTS` might also have specific installation steps.*
-    *Note: The `realtimesst.log` file shows errors related to FFmpeg not being found by the `torio` library (a dependency likely used by `RealtimeTTS` or `RealtimeSTT`). Ensure FFmpeg is installed and accessible in your system's PATH if you encounter audio processing issues.*
+    Install the required Python libraries:
+    ```bash
+    pip install ollama websockets pyaudio RealtimeSTT RealtimeTTS torch google-generativeai opencv-python pillow mss psutil GPUtil elevenlabs python-dotenv python-weather googlemaps # Add any other specific libraries used
+    ```
 
-## API Key Setup (for `ada_online`)
+## API Key Setup (Environment Variables Recommended)
 
-The online version (`ada_online`) requires API keys for cloud services.
+Both `ada_online` and `multimodal_live_api.py` require API keys for cloud services. It is **highly recommended** to use environment variables for security instead of hardcoding keys into the scripts.
 
-### 1. Google Generative AI (Gemini API)
+1.  **Create a `.env` file:** In the root `ada_v1` directory, create a file named `.env`.
+2.  **Add Keys to `.env`:** Open the `.env` file and add your keys in the following format:
 
-* **Purpose:** Used for the core language model processing in `ada_online`.
-* **How to get a key:**
-    1.  Visit the Google AI Studio website: [https://aistudio.google.com/](https://aistudio.google.com/)
-    2.  Sign in with your Google account.
-    3.  Create a new API key. You might need to associate it with a Google Cloud project.
-* **How to use the key:**
-    1.  Open the `ADA/ADA_Online.py` file.
-    2.  Locate the line where the `genai.Client` is initialized:
-        ```python
-        client = genai.Client(api_key="YOUR_API_KEY_HERE", http_options={'api_version': 'v1beta'})
-        ```
-    3.  Replace `"YOUR_API_KEY_HERE"` with the actual API key you generated.
-    * **Security Note:** For better security, especially in production, consider using environment variables to store your API key instead of hardcoding it.
+    ```dotenv
+    # .env file
+    GOOGLE_API_KEY=YOUR_GOOGLE_AI_STUDIO_KEY_HERE
+    ELEVENLABS_API_KEY=YOUR_ELEVENLABS_KEY_HERE
+    MAPS_API_KEY=YOUR_Maps_API_KEY_HERE
+    ```
 
-### 2. ElevenLabs
+3.  **Get the Keys:**
 
-* **Purpose:** Used for Text-to-Speech (TTS) capabilities in `ada_online`.
-* **How to get a key:**
-    1.  Go to the ElevenLabs website: [https://elevenlabs.io/](https://elevenlabs.io/)
-    2.  Log in to your account.
-    3.  Navigate to your profile/settings page.
-    4.  Find and copy your API key.
-* **How to use the key:**
-    1.  Open the `ADA/ADA_Online.py` file.
-    2.  Locate the line defining `ELEVENLABS_API_KEY`:
-        ```python
-        ELEVENLABS_API_KEY = 'YOUR_API_KEY_HERE'
-        ```
-    3.  Replace `'YOUR_API_KEY_HERE'` with your actual ElevenLabs API key.
+    - **Google Generative AI (Gemini API):**
+      - **Purpose:** Core LLM for `ada_online` and `multimodal_live_api.py`.
+      - **Get:** Visit [Google AI Studio](https://aistudio.google.com/), sign in, and create an API key.
+    - **ElevenLabs:**
+      - **Purpose:** High-quality Text-to-Speech (TTS) for `ada_online`.
+      - **Get:** Go to [ElevenLabs](https://elevenlabs.io/), log in, and find your API key in your profile/settings.
+    - **Google Maps:**
+      - **Purpose:** Used by the `get_travel_duration` function tool in `ada_online`.
+      - **Get:** Go to the [Google Cloud Console](https://console.cloud.google.com/), create a project (or use an existing one), enable the "Directions API", and create an API key under "Credentials".
+
+4.  **Code Usage:** The Python scripts (`ADA_Online.py`, `multimodal_live_api.py`, `tts_latency_test.py`) use `python-dotenv` to automatically load these variables from the `.env` file when the script starts.
+
+    ```python
+    # Example from ADA_Online.py
+    from dotenv import load_dotenv
+    load_dotenv() # Loads variables from .env
+
+    ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+    MAPS_API_KEY = os.getenv("MAPS_API_KEY")
+
+    # ... later use these variables ...
+    self.client = genai.Client(api_key=GOOGLE_API_KEY, ...)
+    # or when initializing ElevenLabsEngine/Websocket connection
+    ```
+
+## Speech-to-Text (STT) and Text-to-Speech (TTS)
+
+ADA uses real-time libraries for voice interaction:
+
+- **STT (Speech-to-Text):**
+  - **Library:** `RealtimeSTT` is used in both `ada_local` and `ada_online`.
+  - **Functionality:** Captures audio from the default microphone, detects speech, and transcribes it to text using a backend model (e.g., Whisper `large-v3` specified in the configs).
+- **TTS (Text-to-Speech):**
+  - **Library:** `RealtimeTTS` provides the framework. Different _engines_ handle the actual synthesis:
+    - **`ada_local`:** Uses `RealtimeTTS` likely with `SystemEngine` (OS default TTS) or potentially `CoquiEngine` (local neural voice, requires setup). Quality and latency depend heavily on the chosen engine and system hardware.
+    - **`ada_online` (Recommended):** Uses `ElevenlabsEngine` via WebSockets. This typically provides very low latency and high-quality, natural-sounding voices, but requires an ElevenLabs API key and internet connection.
+    - **`ada_online_noelevenlabs`:** Uses `RealtimeTTS` with `SystemEngine`, offering an online LLM experience without needing an ElevenLabs key, but using the basic OS TTS voice.
 
 ## Running ADA
 
 ### `ada_local`
 
-This version uses Ollama for the language model and local engines for STT and TTS. Performance will depend on your hardware.
+Uses Ollama for the LLM and local engines for STT/TTS. Performance depends significantly on your CPU/GPU and RAM.
 
-* **Real-time STT:** Uses the `RealtimeSTT` library.
-* **Real-time TTS:** Uses the `RealtimeTTS` library, likely defaulting to the `SystemEngine` (using your OS's built-in TTS) or potentially `CoquiEngine` if configured.
-* **To run:**
-    ```bash
-    python main_local.py
-    ```
-   
+- **LLM:** Served locally via Ollama (e.g., `gemma3:4b-it-q4_K_M`).
+- **STT:** `RealtimeSTT`.
+- **TTS:** `RealtimeTTS` with `SystemEngine` or `CoquiEngine`.
+- **To run:**
+  ```bash
+  # Ensure Ollama is running with the required model pulled
+  python main_local.py
+  ```
 
-### `ada_online`
+### `ada_online` (Recommended)
 
-This version uses Google Gemini for the language model and ElevenLabs for TTS, relying on cloud services. It generally offers faster and potentially higher-quality responses but requires API keys and an internet connection.
+Uses Google Gemini (cloud) for LLM and ElevenLabs (cloud) for TTS. Requires API keys and internet. Generally faster and higher quality.
 
-* **Real-time STT:** Uses the `RealtimeSTT` library.
-* **Real-time TTS:** Uses the `ElevenlabsEngine` via WebSockets.
-* **To run:**
-    ```bash
-    python main_online.py
-    ```
-   
+- **LLM:** Google Gemini (`gemini-2.0-flash-live-001` or similar).
+- **STT:** `RealtimeSTT`.
+- **TTS:** `RealtimeTTS` with `ElevenlabsEngine` via WebSockets.
+- **To run:**
+  ```bash
+  # Make sure .env file is set up with API keys
+  python main_online.py
+  ```
 
-## Usage
+### `ada_online_noelevenlabs`
 
-Once running, you can interact with ADA either by typing your prompts into the console when prompted or by speaking (if using `ada_local` or `ada_online` with STT enabled).
+Uses Google Gemini (cloud) for LLM and local OS TTS. A middle ground if you want the better online LLM but don't have/want an ElevenLabs key.
 
-* Press Enter after typing a message.
-* Speak clearly into your microphone for voice input.
-* Type `exit` and press Enter to quit the application.
+- **LLM:** Google Gemini (`gemini-2.0-flash-live-001` or similar).
+- **STT:** `RealtimeSTT`.
+- **TTS:** `RealtimeTTS` with `SystemEngine`.
+- **To run:**
+  ```bash
+  # Make sure .env file is set up with GOOGLE_API_KEY and MAPS_API_KEY
+  python main_online_noelevenlabs.py
+  ```
 
-## Widgets
+## Multimodal Live API Demo (`multimodal_live_api.py`)
 
-ADA can utilize several built-in functions (widgets) located in the `WIDGETS/` directory:
+This script demonstrates real-time, multimodal interaction using the Gemini Live API. It streams audio from your microphone and video frames (from your camera or screen) to the Gemini model and plays back the audio response.
 
-* `camera.py`: Opens the default camera feed.
-* `project.py`: Creates project folders.
-* `system.py`: Provides system hardware information (CPU, RAM, GPU).
-* `timer.py`: Sets countdown timers.
-* `to_do_list.py`: Manages a simple to-do list.
-* *Placeholder Widgets:* `z-calc.py`, `z-news.py`, `z-weather.py`, `z-world_clock.py`, `z-youtube_player.py` (These seem to be placeholders and currently just print their names).
+### Setup (Multimodal Demo)
 
-ADA decides when to call these functions based on your request.
+- Ensure dependencies are installed (see main Installation section).
+- Ensure your `GOOGLE_API_KEY` is set in your `.env` file.
+- **Use headphones!**
+
+### Running (Multimodal Demo)
+
+- **With Camera:**
+  ```bash
+  python multimodal_live_api.py --mode camera # or just python multimodal_live_api.py
+  ```
+- **With Screen Sharing:**
+  ```bash
+  python multimodal_live_api.py --mode screen
+  ```
+- **Audio Only:**
+  ```bash
+  python multimodal_live_api.py --mode none
+  ```
+- You can type text messages in the console while the audio/video stream is running. Type 'q' and Enter to quit.
+
+## Usage (Main ADA Scripts)
+
+Once `main_local.py`, `main_online.py`, or `main_online_noelevenlabs.py` is running:
+
+- **Voice Input:** Speak clearly into your microphone. The STT engine will detect speech and transcribe it.
+- **Text Input:** If you prefer typing, type your prompt into the console when it says "Enter your message:" and press Enter.
+- **Exit:** Type `exit` and press Enter.
+
+## Widgets / Tools
+
+ADA (`ada_local` and `ada_online`) can utilize several built-in functions/tools:
+
+- **Local Widgets (`WIDGETS/` directory):** Primarily used by `ada_local`.
+  - `camera.py`: Opens the default camera feed. (_Note: Implementation returns string, doesn't keep feed open_)
+  - `project.py`: Creates project folders.
+  - `system.py`: Provides system hardware information.
+  - `timer.py`: Sets countdown timers.
+  - `to_do_list.py`: Manages a simple to-do list. (_Not integrated_)
+- **Online Tools (Gemini API):** Used by `ada_online` versions.
+  - `GoogleSearch`: Accesses Google Search for current information.
+  - `get_weather`: Fetches weather using `python-weather`.
+  - `get_travel_duration`: Calculates travel time using `googlemaps`.
+  - `CodeExecution`: Allows Gemini to generate and potentially execute code (primarily for analysis/computation, not file system interaction).
+
+ADA decides when to call these based on your request and the model's understanding.
 
 ## Troubleshooting
 
-* **Audio Issues:** Ensure your microphone and speakers are correctly configured as the system default. Check dependencies like `PyAudio`, `PortAudio`, and potentially `FFmpeg`.
-* **API Key Errors:** Double-check that your API keys are correctly entered in `ADA_Online.py` and that they are active and have the necessary permissions/quota.
-* **Library Errors:** Make sure all dependencies listed in `Setup` are installed correctly. Some libraries might have platform-specific requirements.
-* **Ollama Issues (`ada_local`):** Confirm Ollama is running and the specified model is downloaded and accessible.
+- **Audio Issues (No Input/Output):**
+  - Ensure microphone/speakers are system defaults and not muted.
+  - Check `PyAudio` dependencies (`portaudio`).
+  - Ensure necessary permissions are granted for microphone access.
+  - Try different audio devices if available.
+  - Check for `FFmpeg` if errors mention audio encoding/decoding.
+- **API Key Errors (`ada_online`, `multimodal_live_api.py`):**
+  - Verify keys are correct in the `.env` file.
+  - Ensure the relevant APIs (Gemini, Maps, ElevenLabs) are enabled in their respective cloud consoles.
+  - Check API key quotas and billing status.
+- **Library Errors:**
+  - Ensure all dependencies from `Installation` are correctly installed in your active virtual environment.
+  - Some libraries (e.g., `torch`, `tensorflow` used by STT/TTS backends) might have specific CPU/GPU version requirements.
+- **Ollama Issues (`ada_local`):**
+  - Confirm Ollama service is running.
+  - Verify the specified model (e.g., `gemma3:4b-it-q4_K_M`) is downloaded (`ollama pull model_name`) and accessible.
+  - Check Ollama logs for errors.
+- **TTS Issues:**
+  - If using `ElevenlabsEngine`, check API key and internet connection.
+  - If using `CoquiEngine`, ensure it's installed correctly and models are downloaded.
+  - If using `SystemEngine`, ensure your OS's built-in TTS is functional. Latency might be higher.
+- **STT Issues:**
+  - Check microphone levels.
+  - Ensure `RealtimeSTT` model is appropriate for your hardware (larger models need more resources).
+  - Background noise can interfere. Use headphones.

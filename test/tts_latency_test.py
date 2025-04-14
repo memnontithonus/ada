@@ -19,7 +19,12 @@ from PyQt6.QtCore import pyqtSlot
 import time
 import sys
 import os
+from dotenv import load_dotenv # Added for API key loading
 
+# --- Load Environment Variables ---
+load_dotenv()
+
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 
 class TTSApp(QMainWindow):
     def __init__(self):
@@ -29,7 +34,7 @@ class TTSApp(QMainWindow):
         print("Initializing TTS Engines...")
         self.engine_system = SystemEngine()
         #self.engine_azure = AzureEngine(os.environ.get("AZURE_SPEECH_KEY"), os.environ.get("AZURE_SPEECH_REGION"))
-        self.engine_elevenlabs = ElevenlabsEngine('sk_da39fd7f9dae2fbd9bb71960b6bcffda1d57cd7249c636d4')
+        self.engine_elevenlabs = ElevenlabsEngine(ELEVENLABS_API_KEY)
         self.engine_coqui = CoquiEngine()
         #self.engine_openai = OpenAIEngine()
         print("TTS Engines initialized.")

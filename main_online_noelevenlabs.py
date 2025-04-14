@@ -2,9 +2,12 @@
 Important: **Use headphones**. This script uses the system default audio
 input and output, which often won't include echo cancellation. So to prevent
 the model from interrupting itself it is important that you use headphones. 
+
+Before running this script, ensure the `GOOGLE_API_KEY` environment
+variable is set to the api-key you obtained from Google AI Studio.
 '''
 
-from ADA.ADA_Local import ADA
+from ADA.ADA_Online_NoElevenlabs import ADA
 import asyncio
 
 async def main():
@@ -14,7 +17,7 @@ async def main():
         input_message = tg.create_task(ada.input_message())
         tg.create_task(ada.send_prompt())
         tg.create_task(ada.tts())
-
+        
         await input_message
 
 if __name__ == "__main__":

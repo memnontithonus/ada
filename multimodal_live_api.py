@@ -1,18 +1,3 @@
-# -*- coding: utf-8 -*-
-# Copyright 2025 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 """
 ## Setup
 
@@ -60,6 +45,10 @@ import mss
 import argparse
 
 from google import genai
+from dotenv import load_dotenv # Added for API key loading
+
+# --- Load Environment Variables ---
+load_dotenv()
 
 if sys.version_info < (3, 11, 0):
     import taskgroup, exceptiongroup
@@ -77,7 +66,9 @@ MODEL = "models/gemini-2.0-flash-live-001"
 
 DEFAULT_MODE = "camera"
 
-client = genai.Client(api_key="AIzaSyBf4uug9lF9d424xEa7lrEY_pnjqGnt5SE",http_options={"api_version": "v1beta"})
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+client = genai.Client(api_key=GOOGLE_API_KEY,http_options={"api_version": "v1beta"})
 
 CONFIG = {"response_modalities": ["AUDIO"]}
 
