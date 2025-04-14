@@ -10,10 +10,11 @@ from google.genai import types
 from WIDGETS import system, timer, project
 import asyncio
 from google import genai
+import os
 
 
-
-ELEVENLABS_API_KEY = 'sk_da39fd7f9dae2fbd9bb71960b6bcffda1d57cd7249c636d4'
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 VOICE_ID = 'pFZP5JQG7iQjIQuC4Bku'
 
 FORMAT = pyaudio.paInt16
@@ -34,7 +35,7 @@ class ADA:
             self.device = "cpu"
             print("CUDA is not available. Using CPU.")
 
-        self.client = genai.Client(api_key="AIzaSyBf4uug9lF9d424xEa7lrEY_pnjqGnt5SE", http_options={'api_version': 'v1beta'})
+        self.client = genai.Client(api_key=GOOGLE_API_KEY, http_options={'api_version': 'v1beta'})
         self.model = "gemini-2.0-flash-live-001"
         self.system_behavior = """
             Your name is Ada, which stands for Advanced Design Assistant. 
